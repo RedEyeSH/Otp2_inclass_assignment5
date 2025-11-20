@@ -1,20 +1,22 @@
 pipeline {
     agent any
+
     tools {
-        maven 'ChocoMaven'
+        maven 'ChocoMaven' // Your configured Maven installation in Jenkins
     }
 
     environment {
-     PATH = "C:\\Program Files\\Docker\\Docker\\resources\\bin;${env.PATH}"
-           JAVA_HOME = 'C:\\Program Files\\Java\\jdk-21'  // Adjust to your actual JDK pat
-        SONARQUBE_SERVER = 'SonarQubeServer'  // The name of the SonarQube server configured in Jenkins
-        SONAR_TOKEN = 'sqp_15bfebfd2000ad1db28ed6259c81bdc0ee56eb69' // Store the token securely
+        JAVA_HOME = 'C:\\Program Files\\Java\\jdk-21'
+        PATH = "${JAVA_HOME}\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;${env.PATH}"
+        SONAR_TOKEN = credentials('SONAR_TOKEN_ID') // Use the Jenkins secret credential ID
         DOCKERHUB_CREDENTIALS_ID = 'Docker_Hub'
         DOCKERHUB_REPO = 'RedEyeSH/Otp2_inclass_assignment5'
         DOCKER_IMAGE_TAG = 'latest'
+        SONAR_HOST_URL = 'http://<SONARQUBE_SERVER_IP>:9000' // Replace with actual reachable IP/host
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/RedEyeSH/Otp2_inclass_assignment5.git'
@@ -29,17 +31,14 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQubeServer') {
-                    bat """
-                        ${tool 'SonarScanner'}\\bin\\sonar-scanner ^
+                bat """
+                    mvn sonar:sonar ^
                         -Dsonar.projectKey=Otp2_week5 ^
-                        -Dsonar.sources=src ^
                         -Dsonar.projectName=Otp2_week5 ^
-                        -Dsonar.host.url=http://localhost:9000 ^
+                        -Dsonar.host.url=${env.SONAR_HOST_URL} ^
                         -Dsonar.login=${env.SONAR_TOKEN} ^
                         -Dsonar.java.binaries=target/classes
-                    """
-                }
+                """
             }
         }
 
@@ -47,8 +46,6 @@ pipeline {
             steps {
                 script {
                     docker.build("${DOCKERHUB_REPO}:${DOCKER_IMAGE_TAG}")
-                    // Or specify Dockerfile path explicitly if needed
-                    // docker.build("${DOCKERHUB_REPO}:${DOCKER_IMAGE_TAG}", "-f ./Dockerfile .")
                 }
             }
         }
@@ -61,6 +58,21 @@ pipeline {
                     }
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up workspace...'
+            deleteDir()
+        }
+
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+
+        failure {
+            echo 'Pipeline failed. Check the logs above.'
         }
     }
 }
