@@ -29,7 +29,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('LocalSonarQube') {
+                withSonarQubeEnv('SonarQubeServer') {
                     bat """
                         ${tool 'SonarScanner'}\\bin\\sonar-scanner ^
                         -Dsonar.projectKey=Otp2_week5 ^
